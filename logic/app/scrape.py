@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import json
-import httpx
 from playwright.async_api import async_playwright
 import google.generativeai as genai
 import re
@@ -22,18 +21,15 @@ class JobScraper:
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.google_api_key = os.getenv("GOOGLE_API_KEY")
         self.cache_dir = Path(__file__).parent.parent / "cache" / "scrape_cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_duration = timedelta(hours=24)  # Cache scrapes for 24 hours
 
-        if not self.openai_api_key:
         if self.google_api_key:
             genai.configure(api_key=self.google_api_key)
         else:
             print(
-                "Warning: OPENAI_API_KEY not found in .env file. GPT-4 scraping will not work."
                 "Warning: GOOGLE_API_KEY not found in .env file. Gemini scraping will not work."
             )
 
@@ -72,7 +68,6 @@ class JobScraper:
             clean_text = self._extract_clean_text(soup)
 
             # Use OpenAI to extract structured data
-            job_data = await self._extract_with_openai(clean_text, url)
             job_data = await self._extract_with_gemini(clean_text, url)
 
             # Add the clean text content to the result
@@ -136,22 +131,17 @@ class JobScraper:
 
         return clean_text
 
-    async def _extract_with_openai(
     async def _extract_with_gemini(
         self, text: str, url: str
     ) -> Dict[str, Optional[str]]:
         """
-        Use an OpenAI model to extract structured job information from clean text.
         Use Google Gemini to extract structured job information from clean text.
         """
-        if not self.openai_api_key:
         if not self.google_api_key:
             raise Exception(
-                "OPENAI_API_KEY not configured. Please add it to your .env file."
                 "GOOGLE_API_KEY not configured. Please add it to your .env file."
             )
 
-        # Construct the prompt for GPT-4
         # Construct the prompt for Gemini
         prompt = f"""Extract job posting information from the following text and return it as a single, valid JSON object.
 
@@ -190,42 +180,14 @@ TEXT TO ANALYZE:
 """
 
         try:
-            model = genai.GenerativeModel("gemini-pro")
+            model = genai.GenerativeModel("gemini-2.5-flash")
 
             # --- Retry Logic for API Rate Limiting ---
-            # Call OpenAI API
-            headers = {
-                "Authorization": f"Bearer {self.openai_api_key}",
-                "Content-Type": "application/json",
-            }
-
-            payload = {
-                "model": "gpt-3.5-turbo",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant that extracts structured job information from text. Always respond with valid JSON only.",
-                    },
-                    {"role": "user", "content": prompt},
-                ],
-                "temperature": 0.3,
-                "max_tokens": 1000,
-            }
-
-            api_url = "https://api.openai.com/v1/chat/completions"
             max_retries = 3
             delay = 5  # Initial delay in seconds
 
             for attempt in range(max_retries):
                 try:
-                    async with httpx.AsyncClient() as client:
-                        response = await client.post(
-                            api_url, headers=headers, json=payload, timeout=45
-                        )
-                        response.raise_for_status()
-                        break  # Success, exit loop
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 429 and attempt < max_retries - 1:
                     # The google-generativeai library has its own retry mechanism for some errors,
                     # but we add our own for explicit control over 429s.
                     response = await model.generate_content_async(prompt)
@@ -236,9 +198,10 @@ TEXT TO ANALYZE:
                 except Exception as e:
                     # Catching potential rate limit errors (often appear as 503 or 429)
                     # The Gemini library may abstract this, so we check the error message.
-                    is_rate_limit = "429" in str(e) or "resource has been exhausted" in str(
-                        e
-                    ).lower()
+                    is_rate_limit = (
+                        "429" in str(e)
+                        or "resource has been exhausted" in str(e).lower()
+                    )
                     if is_rate_limit and attempt < max_retries - 1:
                         print(
                             f"Rate limit hit. Retrying in {delay} seconds... (Attempt {attempt + 1}/{max_retries})"
@@ -246,24 +209,17 @@ TEXT TO ANALYZE:
                         await asyncio.sleep(delay)
                         delay *= 2  # Exponential backoff
                     else:
-                        raise  # Re-raise the exception if it's not a 429 or if it's the last attempt
                         raise  # Re-raise the exception if it's not a rate limit or if it's the last attempt
 
             # --- End Retry Logic ---
-            result = response.json()
-            gpt_response = result["choices"][0]["message"]["content"].strip()
             gemini_response = response.text.strip()
 
             # Clean up the response (remove markdown code blocks if present)
-            gpt_response = re.sub(r"^```json\s*", "", gpt_response)
-            gpt_response = re.sub(r"^```\s*", "", gpt_response)
-            gpt_response = re.sub(r"\s*```$", "", gpt_response)
             gemini_response = re.sub(r"^```json\s*", "", gemini_response)
             gemini_response = re.sub(r"^```\s*", "", gemini_response)
             gemini_response = re.sub(r"\s*```$", "", gemini_response)
 
             # Parse JSON response
-            job_data = json.loads(gpt_response)
             job_data = json.loads(gemini_response)
 
             # Add the job URL
@@ -272,10 +228,6 @@ TEXT TO ANALYZE:
             return job_data
 
         except json.JSONDecodeError as e:
-            raise Exception(f"Failed to parse OpenAI response as JSON: {str(e)}")
-        except httpx.RequestError as e:
-            raise Exception(f"OpenAI API request failed: {str(e)}")
             raise Exception(f"Failed to parse Gemini response as JSON: {str(e)}")
         except Exception as e:
-            raise Exception(f"OpenAI extraction failed: {str(e)}")
             raise Exception(f"Gemini extraction failed: {str(e)}")
