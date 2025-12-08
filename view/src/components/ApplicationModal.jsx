@@ -97,7 +97,7 @@ export const ApplicationModal = ({ isOpen, editingApp, onClose, onSave }) => {
                     placeholder="https://www.gradcracker.com/search/..."
                   />
                   <button
-                    className="btn btn-primary"
+                    className="btn btn-pill btn-pill-primary"
                     onClick={handleScrapeUrl}
                     disabled={isScrapingUrl}
                   >
@@ -213,11 +213,11 @@ export const ApplicationModal = ({ isOpen, editingApp, onClose, onSave }) => {
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={handleClose}>
+            <button type="button" className="btn btn-pill btn-secondary" onClick={handleClose}>
               Cancel
             </button>
             {scrapedData && (
-              <button type="button" className="btn btn-primary" onClick={handleSave}>
+              <button type="button" className="btn btn-pill btn-pill-primary" onClick={handleSave}>
                 {editingApp ? 'Update Application' : 'Save Application'}
               </button>
             )}

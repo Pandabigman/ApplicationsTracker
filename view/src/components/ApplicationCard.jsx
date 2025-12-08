@@ -4,7 +4,7 @@ export const ApplicationCard = ({ application, statusColumns, onEdit, onDelete, 
   const currentStatusColor = statusColumns.find(s => s.id === application.status)?.bgColor || 'bg-secondary';
   
   return (
-    <div className="card mb-3 shadow-sm">
+    <div className="application-card">
       <div className="card-body">
         <div className="d-flex justify-content-between align-items-start mb-2">
           <h6 className="card-title mb-0">{application.position_title}</h6>
@@ -25,35 +25,35 @@ export const ApplicationCard = ({ application, statusColumns, onEdit, onDelete, 
             </button>
           </div>
         </div>
-        
+
         <p className="card-text text-muted mb-2">{application.company_name}</p>
-        
+
         {application.location && (
-          <p className="card-text small text-secondary mb-2">
+          <p className="card-text small mb-2">
             <i className="bi bi-geo-alt"></i> {application.location}
           </p>
         )}
-        
+
         {application.salary && (
-          <p className="card-text small text-success fw-bold mb-2">{application.salary}</p>
+          <p className="card-text small fw-bold mb-2" style={{ color: '#4CAF50' }}>{application.salary}</p>
         )}
-        
+
         <div className="d-flex flex-wrap gap-1 mb-2">
           {statusColumns.map((status) => (
             <button
               key={status.id}
               onClick={() => onStatusChange(application.id, status.id)}
-              className={`btn btn-sm ${
+              className={`btn btn-sm btn-status-pill ${
                 application.status === status.id
-                  ? status.btnColor
-                  : 'btn-outline-secondary'
+                  ? 'btn-status-active'
+                  : 'btn-status-inactive'
               }`}
             >
               {status.id}
             </button>
           ))}
         </div>
-        
+
         {application.job_url && (
           <a
             href={application.job_url}

@@ -1,342 +1,191 @@
-
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
-import re
 from typing import Dict, Optional
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+import json
+import re
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
 
 class JobScraper:
     def __init__(self):
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-    
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not self.openai_api_key:
+            print("Warning: OPENAI_API_KEY not found in .env file. GPT-4 scraping will not work.")
+
     def scrape_url(self, url: str) -> Dict[str, Optional[str]]:
         """
-        Scrape job details from a given URL.
-        Attempts to identify the site and use appropriate scraping logic.
+        Scrape job details from a given URL using GPT-4.
+        1. Fetches the HTML content
+        2. Extracts clean text from the main content area
+        3. Sends to GPT-4 for structured extraction
         """
         try:
-            domain = urlparse(url).netloc.lower()
-            
-            # Route to appropriate scraper based on domain
-            if 'gradcracker' in domain:
-                return self._scrape_gradcracker(url)
-            elif 'linkedin' in domain:
-                return self._scrape_linkedin(url)
-            elif 'indeed' in domain:
-                return self._scrape_indeed(url)
-            elif 'reed' in domain:
-                return self._scrape_reed(url)
-            else:
-                # Generic scraper for unknown sites
-                return self._scrape_generic(url)
-                
+            # Fetch the HTML content
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+
+            # Parse HTML and extract clean text
+            soup = BeautifulSoup(response.content, 'html.parser')
+            clean_text = self._extract_clean_text(soup)
+
+            # Use GPT-4 to extract structured data
+            job_data = self._extract_with_gpt4(clean_text, url)
+
+            # Add the clean text content to the result
+            job_data['clean_text_content'] = clean_text
+
+            return job_data
+
         except Exception as e:
             raise Exception(f"Failed to scrape URL: {str(e)}")
-    
-    def _scrape_gradcracker(self, url: str) -> Dict[str, Optional[str]]:
-        """Scrape GradCracker job postings"""
-        response = requests.get(url, headers=self.headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        data = {
-            'company_name': None,
-            'position_title': None,
-            'location': None,
-            'salary': None,
-            'description': None,
-            'requirements': None,
-            'job_url': url
-        }
-        
-        # Extract company name
-        company_elem = soup.find('div', class_='company-name') or soup.find('a', class_='employer-name')
-        if company_elem:
-            data['company_name'] = company_elem.get_text(strip=True)
-        
-        # Extract position title
-        title_elem = soup.find('h1', class_='job-title') or soup.find('h1')
-        if title_elem:
-            data['position_title'] = title_elem.get_text(strip=True)
-        
-        # Extract location
-        location_elem = soup.find('span', class_='location') or soup.find('div', class_='job-location')
-        if location_elem:
-            data['location'] = location_elem.get_text(strip=True)
-        
-        # Extract salary
-        salary_elem = soup.find('span', class_='salary') or soup.find('div', class_='job-salary')
-        if salary_elem:
-            data['salary'] = salary_elem.get_text(strip=True)
-        
-        # Extract description
-        desc_elem = soup.find('div', class_='job-description') or soup.find('div', id='job-description')
-        if desc_elem:
-            data['description'] = desc_elem.get_text(strip=True)
-        
-        # Extract requirements
-        req_elem = soup.find('div', class_='requirements') or soup.find('div', class_='job-requirements')
-        if req_elem:
-            data['requirements'] = req_elem.get_text(strip=True)
-        
-        return data
-    
-    def _scrape_linkedin(self, url: str) -> Dict[str, Optional[str]]:
-        """Scrape LinkedIn job postings"""
-        response = requests.get(url, headers=self.headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        data = {
-            'company_name': None,
-            'position_title': None,
-            'location': None,
-            'salary': None,
-            'description': None,
-            'requirements': None,
-            'job_url': url
-        }
-        
-        # LinkedIn structure (may require login for full access)
-        title_elem = soup.find('h1', class_='top-card-layout__title')
-        if title_elem:
-            data['position_title'] = title_elem.get_text(strip=True)
-        
-        company_elem = soup.find('a', class_='topcard__org-name-link')
-        if company_elem:
-            data['company_name'] = company_elem.get_text(strip=True)
-        
-        location_elem = soup.find('span', class_='topcard__flavor--bullet')
-        if location_elem:
-            data['location'] = location_elem.get_text(strip=True)
-        
-        desc_elem = soup.find('div', class_='show-more-less-html__markup')
-        if desc_elem:
-            data['description'] = desc_elem.get_text(strip=True)
-        
-        return data
-    
-    def _scrape_indeed(self, url: str) -> Dict[str, Optional[str]]:
-        """Scrape Indeed job postings"""
-        response = requests.get(url, headers=self.headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        data = {
-            'company_name': None,
-            'position_title': None,
-            'location': None,
-            'salary': None,
-            'description': None,
-            'requirements': None,
-            'job_url': url
-        }
-        
-        # Extract title
-        title_elem = soup.find('h1', class_='jobsearch-JobInfoHeader-title')
-        if title_elem:
-            data['position_title'] = title_elem.get_text(strip=True)
-        
-        # Extract company
-        company_elem = soup.find('div', {'data-company-name': True})
-        if company_elem:
-            data['company_name'] = company_elem.get('data-company-name')
-        else:
-            company_elem = soup.find('span', class_='css-1saizt3')
-            if company_elem:
-                data['company_name'] = company_elem.get_text(strip=True)
-        
-        # Extract location
-        location_elem = soup.find('div', {'data-testid': 'job-location'})
-        if location_elem:
-            data['location'] = location_elem.get_text(strip=True)
-        
-        # Extract salary
-        salary_elem = soup.find('div', id='salaryInfoAndJobType')
-        if salary_elem:
-            data['salary'] = salary_elem.get_text(strip=True)
-        
-        # Extract description
-        desc_elem = soup.find('div', id='jobDescriptionText')
-        if desc_elem:
-            data['description'] = desc_elem.get_text(strip=True)
-        
-        return data
-    
-    def _scrape_reed(self, url: str) -> Dict[str, Optional[str]]:
-        """Scrape Reed.co.uk job postings"""
-        response = requests.get(url, headers=self.headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        data = {
-            'company_name': None,
-            'position_title': None,
-            'location': None,
-            'salary': None,
-            'description': None,
-            'requirements': None,
-            'job_url': url
-        }
-        
-        # Extract title
-        title_elem = soup.find('h1')
-        if title_elem:
-            data['position_title'] = title_elem.get_text(strip=True)
-        
-        # Extract company
-        company_elem = soup.find('span', {'itemprop': 'hiringOrganization'})
-        if company_elem:
-            data['company_name'] = company_elem.get_text(strip=True)
-        
-        # Extract location
-        location_elem = soup.find('span', {'itemprop': 'jobLocation'})
-        if location_elem:
-            data['location'] = location_elem.get_text(strip=True)
-        
-        # Extract salary
-        salary_elem = soup.find('span', {'data-qa': 'salaryLbl'})
-        if salary_elem:
-            data['salary'] = salary_elem.get_text(strip=True)
-        
-        # Extract description
-        desc_elem = soup.find('span', {'itemprop': 'description'})
-        if desc_elem:
-            data['description'] = desc_elem.get_text(strip=True)
-        
-        return data
-    
-    def _scrape_generic(self, url: str) -> Dict[str, Optional[str]]:
+
+    def _extract_clean_text(self, soup: BeautifulSoup) -> str:
         """
-        Generic scraper that attempts to extract job info from any site
-        using common patterns and heuristics
+        Extract clean text content from HTML, removing navigation, ads, etc.
         """
-        response = requests.get(url, headers=self.headers, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        data = {
-            'company_name': None,
-            'position_title': None,
-            'location': None,
-            'salary': None,
-            'description': None,
-            'requirements': None,
-            'job_url': url
-        }
-        
-        # Try to find title (usually in h1, or has 'title' in class/id)
-        title_elem = soup.find('h1')
-        if not title_elem:
-            title_elem = soup.find(class_=re.compile('title|job-title|position', re.I))
-        if title_elem:
-            data['position_title'] = title_elem.get_text(strip=True)
-        
-        # Try to find company (look for 'company' in class/id)
-        company_elem = soup.find(class_=re.compile('company|employer|organization', re.I))
-        if company_elem:
-            data['company_name'] = company_elem.get_text(strip=True)
-        
-        # Try to find location (look for 'location' in class/id)
-        location_elem = soup.find(class_=re.compile('location|address|place', re.I))
-        if location_elem:
-            data['location'] = location_elem.get_text(strip=True)
-        
-        # Try to find salary (look for 'salary' or currency symbols)
-        salary_elem = soup.find(class_=re.compile('salary|wage|pay|compensation', re.I))
-        if salary_elem:
-            data['salary'] = salary_elem.get_text(strip=True)
-        
-        # Try to find description (usually longest text block)
-        desc_elem = soup.find(class_=re.compile('description|details|content', re.I))
-        if desc_elem:
-            data['description'] = desc_elem.get_text(strip=True)
-        
-        return data
+        # Remove script and style elements
+        for script in soup(["script", "style", "nav", "footer", "header"]):
+            script.decompose()
 
+        # Try to find the main content area
+        # Look for common job posting containers
+        main_content = None
 
-# Alternative: Selenium-based scraper for JavaScript-heavy sites
-# Uncomment this if you need to scrape sites that require JavaScript
+        # Try common job posting selectors
+        selectors = [
+            {'class': re.compile(r'job[-_]?description', re.I)},
+            {'class': re.compile(r'job[-_]?detail', re.I)},
+            {'class': re.compile(r'job[-_]?content', re.I)},
+            {'id': re.compile(r'job[-_]?description', re.I)},
+            {'id': re.compile(r'job[-_]?detail', re.I)},
+            {'role': 'main'},
+            {'class': re.compile(r'main[-_]?content', re.I)},
+        ]
 
+        for selector in selectors:
+            main_content = soup.find(attrs=selector)
+            if main_content:
+                break
+
+        # If no main content found, use the body
+        if not main_content:
+            main_content = soup.find('body')
+
+        if not main_content:
+            main_content = soup
+
+        # Get text and clean it up
+        text = main_content.get_text(separator='\n', strip=True)
+
+        # Remove excessive whitespace and empty lines
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
+        clean_text = '\n'.join(lines)
+
+        # Limit text length to avoid token limits (approximately 10k tokens = 40k chars)
+        if len(clean_text) > 40000:
+            clean_text = clean_text[:40000] + "\n...(content truncated)"
+
+        return clean_text
+
+    def _extract_with_gpt4(self, text: str, url: str) -> Dict[str, Optional[str]]:
+        """
+        Use GPT-4 to extract structured job information from clean text.
+        """
+        if not self.openai_api_key:
+            raise Exception("OPENAI_API_KEY not configured. Please add it to your .env file.")
+
+        # Construct the prompt for GPT-4
+        prompt = f"""Extract job posting information from the following text and return it as JSON.
+
+The text is from this URL: {url}
+
+Please extract:
+- company_name: The company/organization name
+- position_title: The job title or position name
+- location: Work location (city, country, or "Remote")
+- salary: Salary information if mentioned (include currency and range)
+- description: A brief summary of the job (2-3 sentences)
+- requirements: Key requirements and qualifications (bullet points or short paragraph)
+- application_deadline: If mentioned, the deadline to apply (format: YYYY-MM-DD or text description)
+- ai_thoughts: Your strategic advice for the candidate. In 3-4 sentences, explain:
+  * What makes a strong candidate stand out for this role
+  * Key skills or experiences to emphasize
+  * How to tailor the application/CV for maximum impact
+  * Any red flags or challenges to be aware of
+
+Return ONLY valid JSON in this exact format (no markdown, no code blocks):
+{{
+  "company_name": "string or null",
+  "position_title": "string or null",
+  "location": "string or null",
+  "salary": "string or null",
+  "description": "string or null",
+  "requirements": "string or null",
+  "application_deadline": "string or null",
+  "ai_thoughts": "string with strategic advice"
+}}
+
+If any field cannot be determined from the text, use null. Always provide ai_thoughts based on the job description.
+
+TEXT TO ANALYZE:
+{text}
 """
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 
-class SeleniumJobScraper:
-    def __init__(self):
-        self.options = Options()
-        self.options.add_argument('--headless')  # Run in background
-        self.options.add_argument('--no-sandbox')
-        self.options.add_argument('--disable-dev-shm-usage')
-        self.options.add_argument('--disable-gpu')
-        self.options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-    
-    def scrape_url(self, url: str) -> Dict[str, Optional[str]]:
-        driver = webdriver.Chrome(
-            service=Service(ChromeDriverManager().install()),
-            options=self.options
-        )
-        
         try:
-            driver.get(url)
-            
-            # Wait for page to load
-            WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.TAG_NAME, "body"))
-            )
-            
-            data = {
-                'company_name': None,
-                'position_title': None,
-                'location': None,
-                'salary': None,
-                'description': None,
-                'requirements': None,
-                'job_url': url
+            # Call OpenAI API
+            api_url = "https://api.openai.com/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {self.openai_api_key}",
+                "Content-Type": "application/json"
             }
-            
-            # Extract title
-            try:
-                title_elem = driver.find_element(By.TAG_NAME, "h1")
-                data['position_title'] = title_elem.text
-            except:
-                pass
-            
-            # Extract company (modify selectors based on target site)
-            try:
-                company_elem = driver.find_element(By.CSS_SELECTOR, "[class*='company']")
-                data['company_name'] = company_elem.text
-            except:
-                pass
-            
-            # Extract location
-            try:
-                location_elem = driver.find_element(By.CSS_SELECTOR, "[class*='location']")
-                data['location'] = location_elem.text
-            except:
-                pass
-            
-            # Extract description
-            try:
-                desc_elem = driver.find_element(By.CSS_SELECTOR, "[class*='description']")
-                data['description'] = desc_elem.text
-            except:
-                pass
-            
-            return data
-            
-        finally:
-            driver.quit()
-"""
+
+            payload = {
+                "model": "gpt-4",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a helpful assistant that extracts structured job information from text. Always respond with valid JSON only."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.3,
+                "max_tokens": 1000
+            }
+
+            response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+            response.raise_for_status()
+
+            result = response.json()
+            gpt_response = result['choices'][0]['message']['content'].strip()
+
+            # Clean up the response (remove markdown code blocks if present)
+            gpt_response = re.sub(r'^```json\s*', '', gpt_response)
+            gpt_response = re.sub(r'^```\s*', '', gpt_response)
+            gpt_response = re.sub(r'\s*```$', '', gpt_response)
+
+            # Parse JSON response
+            job_data = json.loads(gpt_response)
+
+            # Add the job URL
+            job_data['job_url'] = url
+
+            return job_data
+
+        except json.JSONDecodeError as e:
+            raise Exception(f"Failed to parse GPT-4 response as JSON: {str(e)}")
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"OpenAI API request failed: {str(e)}")
+        except Exception as e:
+            raise Exception(f"GPT-4 extraction failed: {str(e)}")

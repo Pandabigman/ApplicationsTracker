@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Download } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Download, Home } from 'lucide-react';
 import { ApplicationCard } from '../components/ApplicationCard';
 import { ApplicationModal } from '../components/ApplicationModal';
 import { api } from '../services/api';
@@ -13,6 +14,7 @@ const statusColumns = [
 ];
 
 export const Dashboard = () => {
+  const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingApp, setEditingApp] = useState(null);
@@ -101,53 +103,53 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="min-vh-100 bg-light">
-      <header className="bg-white shadow-sm border-bottom">
-        <div className="container-fluid py-3">
-          <div className="d-flex justify-content-between align-items-center">
-            <div>
-              <h1 className="h3 mb-1">Application Tracker</h1>
-              <p className="text-muted mb-0">Track your job applications in one place</p>
-            </div>
-            <div className="d-flex gap-2">
-              <button onClick={handleExportToExcel} className="btn btn-success">
-                <Download size={18} className="me-2" />
-                Export to Excel
-              </button>
-              <button onClick={() => setShowAddModal(true)} className="btn btn-primary">
-                <Plus size={18} className="me-2" />
-                Add Application
-              </button>
-            </div>
+    <div className="min-vh-100">
+      <header className="header-dark">
+        <div className="container-fluid py-4">
+          <div className="header-center mb-3">
+            <h1 className="h2 mb-2">Application Tracker</h1>
+            <p className="mb-0">Track your job applications in one place</p>
+          </div>
+          <div className="d-flex justify-content-center gap-3">
+            <button onClick={() => navigate('/')} className="btn btn-pill btn-outline-secondary">
+              <Home size={18} className="me-2" />
+              Home
+            </button>
+            <button onClick={handleExportToExcel} className="btn btn-pill btn-pill-success">
+              <Download size={18} className="me-2" />
+              Export to Excel
+            </button>
+            <button onClick={() => setShowAddModal(true)} className="btn btn-pill btn-pill-primary">
+              <Plus size={18} className="me-2" />
+              Add Application
+            </button>
           </div>
         </div>
       </header>
 
       <main className="container-fluid py-4">
-        <div className="row g-3">
+        <div className="status-categories">
           {statusColumns.map((column) => (
-            <div key={column.id} className="col-12 col-md-6 col-lg">
-              <div className="card">
-                <div className={`card-header ${column.bgColor} text-white`}>
-                  <h5 className="mb-0">
-                    {column.id}
-                    <span className="badge bg-light text-dark ms-2">
-                      {getApplicationsByStatus(column.id).length}
-                    </span>
-                  </h5>
-                </div>
-                <div className="card-body bg-light" style={{ minHeight: '500px' }}>
-                  {getApplicationsByStatus(column.id).map((app) => (
-                    <ApplicationCard
-                      key={app.id}
-                      application={app}
-                      statusColumns={statusColumns}
-                      onEdit={handleEditApplication}
-                      onDelete={handleDeleteApplication}
-                      onStatusChange={handleUpdateStatus}
-                    />
-                  ))}
-                </div>
+            <div key={column.id} className="status-category-card">
+              <div className="status-category-header">
+                <h5 className="mb-0">
+                  {column.id}
+                  <span className="badge ms-2">
+                    {getApplicationsByStatus(column.id).length}
+                  </span>
+                </h5>
+              </div>
+              <div className="status-category-body">
+                {getApplicationsByStatus(column.id).map((app) => (
+                  <ApplicationCard
+                    key={app.id}
+                    application={app}
+                    statusColumns={statusColumns}
+                    onEdit={handleEditApplication}
+                    onDelete={handleDeleteApplication}
+                    onStatusChange={handleUpdateStatus}
+                  />
+                ))}
               </div>
             </div>
           ))}

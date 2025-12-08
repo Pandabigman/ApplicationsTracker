@@ -1,15 +1,15 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Dashboard } from './pages/Dashboard';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Home from './pages/Home';
+import AllApplications from './pages/AllApplications';
+import JobDetail from './pages/JobDetail';
 
 function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        {/* Add more routes here as needed */}
-        {/* <Route path="/analytics" element={<Analytics />} /> */}
-        {/* <Route path="/settings" element={<Settings />} /> */}
+        <Route path="/" element={<Home />} />
+        <Route path="/applications" element={<AllApplications />} />
+        <Route path="/job/:id" element={<JobDetail />} />
       </Routes>
     </Router>
   );
