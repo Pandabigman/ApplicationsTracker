@@ -5,3 +5,7 @@
 __pycache__/
 .venv
 venv
+
+#SQLite database 
+logic/cache/
+logic/data/
