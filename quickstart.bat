@@ -7,7 +7,7 @@ echo Starting Backend and Frontend servers...
 echo.
 
 REM Start backend in a new window
-start "Job Tracker Backend" cmd /k "cd logic && venv\Scripts\activate && python -m uvicorn app.main:app --reload"
+start "Job Tracker Backend" cmd /k "cd logic && venv\Scripts\activate && python -m uvicorn app.main:app"
 
 REM Wait a moment for backend to initialize
 timeout /t 3 /nobreak >nul
