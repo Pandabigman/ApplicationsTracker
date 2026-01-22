@@ -1,11 +1,23 @@
 #environment variables
 .env
+.env.local
 
 #pycache and venv
 __pycache__/
 .venv
 venv
 
-#SQLite database 
+#SQLite database
 logic/cache/
 logic/data/
+
+#Node
+node_modules/
+view/dist/
+
+#IDE
+.vscode/
+.idea/
+
+#OS
+.DS_Store
