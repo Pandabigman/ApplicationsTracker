@@ -17,15 +17,18 @@ jobs:
       - name: Install and Build
         working-directory: ./view
         run: |
-          npm ci
+          npm install
           npm run build
         env:
           VITE_API_URL: ${{ secrets.PRODUCTION_API_URL }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_CLERK_PUBLISHABLE_KEY }}
+
+      - name: Verify build output
+        run: ls -la view/dist
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy ./view/dist --project-name=applicationstracker
+          command: pages deploy view/dist --project-name=applicationstracker --branch=main
