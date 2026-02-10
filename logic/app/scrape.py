@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 import json
-from playwright.async_api import async_playwright
+import httpx
 import google.generativeai as genai
 import re
 import asyncio
@@ -21,54 +21,66 @@ class JobScraper:
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         }
-        self.google_api_key = os.getenv("GOOGLE_API_KEY")
         self.cache_dir = Path(__file__).parent.parent / "cache" / "scrape_cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.cache_duration = timedelta(hours=24)  # Cache scrapes for 24 hours
+        self.cache_duration = timedelta(hours=24)
 
-        if self.google_api_key:
-            genai.configure(api_key=self.google_api_key)
+    async def _fetch_html(self, url: str) -> str:
+        """Fetch HTML content using ScrapingBee for JS-rendered pages."""
+        scrapingbee_key = os.environ.get("SCRAPINGBEE_API_KEY")
+
+        if scrapingbee_key:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://app.scrapingbee.com/api/v1/",
+                    params={
+                        "api_key": scrapingbee_key,
+                        "url": url,
+                        "render_js": "true",
+                    },
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                return response.text
         else:
-            print(
-                "Warning: GOOGLE_API_KEY not found in .env file. Gemini scraping will not work."
-            )
+            # Fallback: plain HTTP fetch (no JS rendering)
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers=self.headers,
+                    follow_redirects=True,
+                    timeout=20.0,
+                )
+                response.raise_for_status()
+                return response.text
 
-    async def scrape_url(self, url: str) -> Dict[str, Optional[str]]:
+    async def scrape_url(self, url: str, gemini_api_key: str) -> Dict[str, Optional[str]]:
         """
         Scrape job details from a given URL using an AI model.
-        1. Fetches the HTML content
+        1. Fetches the HTML content via ScrapingBee
         2. Extracts clean text from the main content area
-        3. Sends to OpenAI for structured extraction
+        3. Sends to Gemini for structured extraction
         """
         try:
             # --- Caching Logic ---
             url_hash = hashlib.sha256(url.encode()).hexdigest()
             cache_file = self.cache_dir / f"{url_hash}.json"
 
-            # Check for a valid cache file
             if cache_file.exists():
                 file_mod_time = datetime.fromtimestamp(cache_file.stat().st_mtime)
                 if datetime.now() - file_mod_time < self.cache_duration:
-                    print(f"Cache hit for URL: {url}")
                     with open(cache_file, "r", encoding="utf-8") as f:
                         return json.load(f)
 
-            print(f"Cache miss for URL: {url}")
-
-            # Fetch the HTML content using Playwright
-            async with async_playwright() as p:
-                browser = await p.chromium.launch()
-                page = await browser.new_page(user_agent=self.headers["User-Agent"])
-                await page.goto(url, timeout=20000, wait_until="domcontentloaded")
-                content = await page.content()
-                await browser.close()
+            # Fetch the HTML content
+            content = await self._fetch_html(url)
 
             # Parse HTML and extract clean text
             soup = BeautifulSoup(content, "html.parser")
             clean_text = self._extract_clean_text(soup)
 
-            # Use OpenAI to extract structured data
-            job_data = await self._extract_with_gemini(clean_text, url)
+            # Use Gemini to extract structured data
+            job_data = await self._extract_with_gemini(clean_text, url, gemini_api_key)
 
             # Add the clean text content to the result
             job_data["clean_text_content"] = clean_text
@@ -83,18 +95,11 @@ class JobScraper:
             raise Exception(f"Failed to scrape URL: {str(e)}")
 
     def _extract_clean_text(self, soup: BeautifulSoup) -> str:
-        """
-        Extract clean text content from HTML, removing navigation, ads, etc.
-        """
-        # Remove script and style elements
+        """Extract clean text content from HTML, removing navigation, ads, etc."""
         for script in soup(["script", "style", "nav", "footer", "header"]):
             script.decompose()
 
-        # Try to find the main content area
-        # Look for common job posting containers
         main_content = None
-
-        # Try common job posting selectors
         selectors = [
             {"class": re.compile(r"job[-_]?description", re.I)},
             {"class": re.compile(r"job[-_]?detail", re.I)},
@@ -110,39 +115,26 @@ class JobScraper:
             if main_content:
                 break
 
-        # If no main content found, use the body
         if not main_content:
             main_content = soup.find("body")
-
         if not main_content:
             main_content = soup
 
-        # Get text and clean it up
         text = main_content.get_text(separator="\n", strip=True)
-
-        # Remove excessive whitespace and empty lines
         lines = [line.strip() for line in text.split("\n") if line.strip()]
         clean_text = "\n".join(lines)
 
-        # Limit text length to avoid token limits (approximately 10k tokens = 40k chars)
         if len(clean_text) > 40000:
             clean_text = clean_text[:40000] + "\n...(content truncated)"
-            print("content was too long and truncated")
 
         return clean_text
 
     async def _extract_with_gemini(
-        self, text: str, url: str
+        self, text: str, url: str, api_key: str
     ) -> Dict[str, Optional[str]]:
-        """
-        Use Google Gemini to extract structured job information from clean text.
-        """
-        if not self.google_api_key:
-            raise Exception(
-                "GOOGLE_API_KEY not configured. Please add it to your .env file."
-            )
+        """Use Google Gemini to extract structured job information from clean text."""
+        genai.configure(api_key=api_key)
 
-        # Construct the prompt for Gemini
         prompt = f"""Extract job posting information from the following text and return it as a single, valid JSON object.
 
 The text is from this URL: {url}
@@ -182,47 +174,33 @@ TEXT TO ANALYZE:
         try:
             model = genai.GenerativeModel("gemini-2.5-flash")
 
-            # --- Retry Logic for API Rate Limiting ---
             max_retries = 3
-            delay = 5  # Initial delay in seconds
+            delay = 5
 
             for attempt in range(max_retries):
                 try:
-                    # The google-generativeai library has its own retry mechanism for some errors,
-                    # but we add our own for explicit control over 429s.
                     response = await model.generate_content_async(prompt)
-                    break  # Success, exit loop
-                except genai.types.generation_types.BlockedPromptException as e:
-                    # If the prompt is blocked for safety reasons, we can't retry.
-                    raise Exception(f"Gemini prompt was blocked: {e}")
+                    break
                 except Exception as e:
-                    # Catching potential rate limit errors (often appear as 503 or 429)
-                    # The Gemini library may abstract this, so we check the error message.
+                    if hasattr(genai, 'types') and hasattr(genai.types, 'generation_types'):
+                        if isinstance(e, genai.types.generation_types.BlockedPromptException):
+                            raise Exception(f"Gemini prompt was blocked: {e}")
                     is_rate_limit = (
                         "429" in str(e)
                         or "resource has been exhausted" in str(e).lower()
                     )
                     if is_rate_limit and attempt < max_retries - 1:
-                        print(
-                            f"Rate limit hit. Retrying in {delay} seconds... (Attempt {attempt + 1}/{max_retries})"
-                        )
                         await asyncio.sleep(delay)
-                        delay *= 2  # Exponential backoff
+                        delay *= 2
                     else:
-                        raise  # Re-raise the exception if it's not a rate limit or if it's the last attempt
+                        raise
 
-            # --- End Retry Logic ---
             gemini_response = response.text.strip()
-
-            # Clean up the response (remove markdown code blocks if present)
             gemini_response = re.sub(r"^```json\s*", "", gemini_response)
             gemini_response = re.sub(r"^```\s*", "", gemini_response)
             gemini_response = re.sub(r"\s*```$", "", gemini_response)
 
-            # Parse JSON response
             job_data = json.loads(gemini_response)
-
-            # Add the job URL
             job_data["job_url"] = url
 
             return job_data

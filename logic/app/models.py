@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -7,6 +7,7 @@ class Application(Base):
     __tablename__ = "applications"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(255), nullable=False, index=True)
     company_name = Column(String(255), nullable=False, index=True)
     position_title = Column(String(255), nullable=False)
     location = Column(String(255), nullable=True)
@@ -124,7 +125,7 @@ class Deadline(Base):
     deadline_type = Column(String(50), nullable=False)  # application, interview, assessment, follow_up, etc.
     deadline_date = Column(DateTime, nullable=False, index=True)
     description = Column(Text, nullable=True)
-    is_completed = Column(Integer, default=0)  # 0 = pending, 1 = completed (SQLite doesn't have boolean)
+    is_completed = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

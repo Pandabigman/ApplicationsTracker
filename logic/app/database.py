@@ -1,27 +1,31 @@
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from pathlib import Path
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Create a 'data' directory in the logic folder for the SQLite database
-db_dir = Path(__file__).parent.parent / "data"
-db_dir.mkdir(exist_ok=True)
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://localhost:5432/jobtracker",
+)
 
-# SQLite database URL
-DATABASE_URL = f"sqlite:///{db_dir / 'jobtracker.db'}"
+# Cloud PostgreSQL providers give URLs starting with "postgres://"
+# but SQLAlchemy 2.x requires "postgresql://"
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Create engine with SQLite-specific settings
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False},  # Needed for SQLite with FastAPI
-    echo=False  # Set to True for SQL query logging during development
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=300,
+    pool_pre_ping=True,
+    echo=False,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-# Dependency to get DB session
 def get_db():
     db = SessionLocal()
     try:
