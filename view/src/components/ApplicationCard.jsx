@@ -35,7 +35,7 @@ export const ApplicationCard = ({ application, statusColumns, onEdit, onDelete, 
         )}
 
         {application.salary && (
-          <p className="card-text small fw-bold mb-2" style={{ color: '#4CAF50' }}>{application.salary}</p>
+          <p className="card-text small fw-bold mb-2" style={{ color: 'var(--dark-accent)' }}>{application.salary}</p>
         )}
 
         <div className="d-flex flex-wrap gap-1 mb-2">

@@ -172,7 +172,7 @@ function Home() {
             style={{
               maxWidth: '800px',
               backgroundColor: 'var(--card-bg)',
-              border: '2px solid var(--dark-accent)'
+              border: '1px solid var(--dark-accent)'
             }}
           >
             <div className="card-body p-4">

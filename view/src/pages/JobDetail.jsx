@@ -336,7 +336,7 @@ function JobDetail() {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.1 }}
                 className="card mb-4"
-                style={{ backgroundColor: 'var(--card-bg)', borderLeft: '4px solid var(--dark-accent)' }}
+                style={{ backgroundColor: 'var(--card-bg)', borderLeft: '3px solid var(--dark-accent)' }}
               >
                 <div className="card-body">
                   <h5 className="card-title" style={{ color: 'var(--text-light)' }}>
