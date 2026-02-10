@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, Loader2, Calendar, Briefcase, Clock, ArrowRight } from 'lucide-react';
+import { Search, Loader2, Calendar, Briefcase, Clock, ArrowRight, Settings } from 'lucide-react';
+import { UserButton } from '@clerk/clerk-react';
 import { api } from '../services/api';
 
 function Home() {
@@ -144,7 +145,17 @@ function Home() {
         animate="visible"
         variants={containerVariants}
       >
-        <motion.div className="text-center mb-5" variants={itemVariants}>
+        <motion.div className="text-center mb-5 position-relative" variants={itemVariants}>
+          <div className="position-absolute d-flex gap-2 align-items-center" style={{ top: 0, right: 0 }}>
+            <button
+              className="btn btn-outline-light btn-sm"
+              onClick={() => navigate('/settings')}
+              title="Settings"
+            >
+              <Settings size={18} />
+            </button>
+            <UserButton />
+          </div>
           <h1 className="display-4 fw-bold mb-3" style={{ color: 'var(--text-light)' }}>
             <Briefcase className="me-3" size={48} style={{ color: 'var(--dark-accent)' }} />
             Job Application Tracker
