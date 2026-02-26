@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import AnyHttpUrl, BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -6,13 +6,27 @@ from datetime import datetime
 
 
 class ApplicationBase(BaseModel):
-    company_name: str
-    position_title: str
-    job_url: Optional[str] = None
-    location: Optional[str] = None
-    salary: Optional[str] = None
-    status: Optional[str] = "Applied"
+    company_name: str = Field(..., max_length=255)
+    position_title: str = Field(..., max_length=255)
+    job_url: Optional[str] = Field(None, max_length=2048)
+    location: Optional[str] = Field(None, max_length=255)
+    salary: Optional[str] = Field(None, max_length=255)
+    status: Optional[str] = Field("Applied", max_length=100)
     deadline: Optional[datetime] = None
+
+    @field_validator("job_url")
+    @classmethod
+    def job_url_must_be_http(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(v)
+            if parsed.scheme not in ("http", "https"):
+                raise ValueError("job_url must use http or https")
+        except Exception:
+            raise ValueError("job_url must be a valid http/https URL")
+        return v
 
 
 class ApplicationCreate(ApplicationBase):
@@ -20,13 +34,27 @@ class ApplicationCreate(ApplicationBase):
 
 
 class ApplicationUpdate(BaseModel):
-    company_name: Optional[str] = None
-    position_title: Optional[str] = None
-    job_url: Optional[str] = None
-    location: Optional[str] = None
-    salary: Optional[str] = None
-    status: Optional[str] = None
+    company_name: Optional[str] = Field(None, max_length=255)
+    position_title: Optional[str] = Field(None, max_length=255)
+    job_url: Optional[str] = Field(None, max_length=2048)
+    location: Optional[str] = Field(None, max_length=255)
+    salary: Optional[str] = Field(None, max_length=255)
+    status: Optional[str] = Field(None, max_length=100)
     deadline: Optional[datetime] = None
+
+    @field_validator("job_url")
+    @classmethod
+    def job_url_must_be_http(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(v)
+            if parsed.scheme not in ("http", "https"):
+                raise ValueError("job_url must use http or https")
+        except Exception:
+            raise ValueError("job_url must be a valid http/https URL")
+        return v
 
 
 class ApplicationResponse(ApplicationBase):
@@ -75,7 +103,7 @@ class JobDetailResponse(JobDetailBase):
 
 
 class NoteBase(BaseModel):
-    content: str
+    content: str = Field(..., max_length=50_000)
 
 
 class NoteCreate(NoteBase):
@@ -123,9 +151,9 @@ class ActivityLogResponse(ActivityLogBase):
 
 
 class DeadlineBase(BaseModel):
-    deadline_type: str  # application, interview, assessment, follow_up, etc.
+    deadline_type: str = Field(..., max_length=100)
     deadline_date: datetime
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=1000)
     is_completed: bool = False
 
 
@@ -134,9 +162,9 @@ class DeadlineCreate(DeadlineBase):
 
 
 class DeadlineUpdate(BaseModel):
-    deadline_type: Optional[str] = None
+    deadline_type: Optional[str] = Field(None, max_length=100)
     deadline_date: Optional[datetime] = None
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=1000)
     is_completed: Optional[bool] = None
 
 
@@ -154,7 +182,7 @@ class DeadlineResponse(DeadlineBase):
 
 
 class ScrapeRequest(BaseModel):
-    url: str
+    url: AnyHttpUrl
 
 
 class ScrapeResponse(BaseModel):

@@ -20,7 +20,7 @@ import {
   Save,
   X
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, safeHref } from '../services/api';
 
 function JobDetail() {
   const { id } = useParams();
@@ -315,9 +315,9 @@ function JobDetail() {
                   )}
                 </div>
 
-                {application.job_url && (
+                {safeHref(application.job_url) && (
                   <a
-                    href={application.job_url}
+                    href={safeHref(application.job_url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-sm btn-outline-light"

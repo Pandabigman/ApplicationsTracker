@@ -1,20 +1,25 @@
 import os
 import jwt
 import httpx
+from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 security = HTTPBearer()
 
-# Cache the JWKS to avoid fetching on every request
+# Cache the JWKS to avoid fetching on every request, refresh every hour
 _jwks_cache = None
+_jwks_cache_time: datetime | None = None
+_JWKS_TTL = timedelta(hours=1)
 
 
 async def _get_jwks():
     """Fetch Clerk's JWKS (JSON Web Key Set) for JWT verification."""
-    global _jwks_cache
-    if _jwks_cache is not None:
-        return _jwks_cache
+    global _jwks_cache, _jwks_cache_time
+    now = datetime.now(tz=timezone.utc)
+    if _jwks_cache is not None and _jwks_cache_time is not None:
+        if now - _jwks_cache_time < _JWKS_TTL:
+            return _jwks_cache
 
     clerk_secret_key = os.environ.get("CLERK_SECRET_KEY", "")
     # Extract the Clerk instance ID from the secret key to build the JWKS URL
@@ -33,12 +38,13 @@ async def _get_jwks():
             response = await client.get(clerk_jwks_url)
             response.raise_for_status()
             _jwks_cache = response.json()
+            _jwks_cache_time = datetime.now(tz=timezone.utc)
             return _jwks_cache
         except Exception as e:
             print(f"Error fetching JWKS from {clerk_jwks_url}: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to connect to authentication provider: {str(e)}",
+                detail="Authentication provider unavailable.",
             )
 
 
@@ -78,5 +84,5 @@ async def get_current_user(
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token.")

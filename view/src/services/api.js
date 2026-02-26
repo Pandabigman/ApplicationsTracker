@@ -1,5 +1,20 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+/**
+ * Returns the URL only if it uses http or https, otherwise null.
+ * Prevents javascript: and other dangerous protocol XSS via href attributes.
+ */
+export function safeHref(url) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 const getGeminiApiKey = () => localStorage.getItem('gemini_api_key');
 
 // Auth token getter - set by useAuthSetup() in React

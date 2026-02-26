@@ -1,4 +1,5 @@
 import { ExternalLink, Trash2, Edit2 } from 'lucide-react';
+import { safeHref } from '../services/api';
 
 export const ApplicationCard = ({ application, statusColumns, onEdit, onDelete, onStatusChange }) => {
   const currentStatusColor = statusColumns.find(s => s.id === application.status)?.bgColor || 'bg-secondary';
@@ -54,9 +55,9 @@ export const ApplicationCard = ({ application, statusColumns, onEdit, onDelete, 
           ))}
         </div>
 
-        {application.job_url && (
+        {safeHref(application.job_url) && (
           <a
-            href={application.job_url}
+            href={safeHref(application.job_url)}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-sm btn-link p-0 text-decoration-none"

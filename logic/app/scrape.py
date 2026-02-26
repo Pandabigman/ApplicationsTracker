@@ -1,7 +1,10 @@
 from bs4 import BeautifulSoup
 from typing import Dict, Optional
 import os
+import ipaddress
+import socket
 from pathlib import Path
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 import json
 import httpx
@@ -14,6 +17,34 @@ from datetime import datetime, timedelta
 # Load environment variables
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
+
+
+_PRIVATE_NETS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),  # link-local / cloud metadata
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _validate_url_for_ssrf(url: str) -> None:
+    """Raise ValueError if the URL targets a private/loopback/metadata address."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"URL scheme '{parsed.scheme}' is not allowed.")
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("URL has no hostname.")
+    try:
+        ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+    except socket.gaierror:
+        raise ValueError("URL hostname could not be resolved.")
+    for net in _PRIVATE_NETS:
+        if ip in net:
+            raise ValueError("URL targets a private or reserved address.")
 
 
 class JobScraper:
@@ -62,6 +93,9 @@ class JobScraper:
         3. Sends to Gemini for structured extraction
         """
         try:
+            # SSRF guard — must run before any network access
+            _validate_url_for_ssrf(url)
+
             # --- Caching Logic ---
             url_hash = hashlib.sha256(url.encode()).hexdigest()
             cache_file = self.cache_dir / f"{url_hash}.json"
@@ -136,8 +170,6 @@ class JobScraper:
         genai.configure(api_key=api_key)
 
         prompt = f"""Extract job posting information from the following text and return it as a single, valid JSON object.
-
-The text is from this URL: {url}
 
 Please extract:
 - company_name: The company/organization name

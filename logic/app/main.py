@@ -6,9 +6,12 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 
-from fastapi import FastAPI, Depends, HTTPException, Header, status
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from typing import List
 import io
@@ -36,7 +39,10 @@ from app.schemas import (
 from app.scrape import JobScraper
 from app.auth import get_current_user
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="Application Tracker API", version="3.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS middleware - configurable via environment
 frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
@@ -54,8 +60,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Gemini-Api-Key"],
 )
 
 scraper = JobScraper()
@@ -91,10 +97,16 @@ def read_root():
 
 
 @app.post("/scrape", response_model=ScrapeResponse)
-async def scrape_job(request: ScrapeRequest, x_gemini_api_key: str = Header(...)):
+@limiter.limit("20/minute")
+async def scrape_job(
+    _http_request: Request,
+    request: ScrapeRequest,
+    x_gemini_api_key: str = Header(...),
+    _user_id: str = Depends(get_current_user),
+):
     """Scrape job details from a URL using Gemini AI (BYOK)"""
     try:
-        data = await scraper.scrape_url(request.url, x_gemini_api_key)
+        data = await scraper.scrape_url(str(request.url), x_gemini_api_key)
 
         if not data.get("position_title") and not data.get("company_name"):
             raise HTTPException(
@@ -103,12 +115,20 @@ async def scrape_job(request: ScrapeRequest, x_gemini_api_key: str = Header(...)
             )
 
         return data
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        print(f"Scrape error: {e}")
+        raise HTTPException(status_code=400, detail="Failed to extract job info from this URL.")
 
 
 @app.post("/validate-key")
-async def validate_key(x_gemini_api_key: str = Header(...)):
+@limiter.limit("10/minute")
+async def validate_key(
+    _http_request: Request,
+    x_gemini_api_key: str = Header(...),
+    _user_id: str = Depends(get_current_user),
+):
     """Validate a Gemini API key with a minimal test call"""
     try:
         import google.generativeai as genai
@@ -118,7 +138,8 @@ async def validate_key(x_gemini_api_key: str = Header(...)):
         await model.generate_content_async("Say 'ok'")
         return {"valid": True}
     except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Invalid API key: {str(e)}")
+        print(f"Key validation error: {e}")
+        raise HTTPException(status_code=401, detail="Invalid API key.")
 
 
 # ============== Application Endpoints ==============
