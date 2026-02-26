@@ -99,14 +99,14 @@ def read_root():
 @app.post("/scrape", response_model=ScrapeResponse)
 @limiter.limit("20/minute")
 async def scrape_job(
-    _http_request: Request,
-    request: ScrapeRequest,
+    request: Request,
+    body: ScrapeRequest,
     x_gemini_api_key: str = Header(...),
     _user_id: str = Depends(get_current_user),
 ):
     """Scrape job details from a URL using Gemini AI (BYOK)"""
     try:
-        data = await scraper.scrape_url(str(request.url), x_gemini_api_key)
+        data = await scraper.scrape_url(str(body.url), x_gemini_api_key)
 
         if not data.get("position_title") and not data.get("company_name"):
             raise HTTPException(
@@ -125,7 +125,7 @@ async def scrape_job(
 @app.post("/validate-key")
 @limiter.limit("10/minute")
 async def validate_key(
-    _http_request: Request,
+    request: Request,
     x_gemini_api_key: str = Header(...),
     _user_id: str = Depends(get_current_user),
 ):
