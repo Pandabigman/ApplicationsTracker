@@ -16,7 +16,7 @@ import os
 import pytest
 import httpx
 
-BACKEND_URL = os.environ.get("PRODUCTION_API_URL", "").rstrip("/")
+BACKEND_URL = os.environ.get("BACKEND_URL", "").rstrip("/")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "").rstrip("/")
 
 
