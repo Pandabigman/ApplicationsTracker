@@ -153,7 +153,7 @@ def get_applications(
     applications = (
         db.query(Application)
         .filter(Application.user_id == user_id)
-        .order_by(Application.created_at.desc())
+        .order_by(Application.created_at.desc(), Application.id.desc())
         .all()
     )
     return applications

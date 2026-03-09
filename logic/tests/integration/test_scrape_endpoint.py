@@ -86,7 +86,7 @@ class TestScrapeEndpoint:
 class TestValidateKeyEndpoint:
     def test_valid_key_returns_200_with_valid_true(self, client):
         with patch(
-            "app.main.genai.GenerativeModel",
+            "google.generativeai.GenerativeModel",
         ) as mock_model_cls:
             mock_model = AsyncMock()
             mock_model.generate_content_async = AsyncMock(return_value=MagicMock())
@@ -103,7 +103,7 @@ class TestValidateKeyEndpoint:
 
     def test_invalid_key_returns_401(self, client):
         with patch(
-            "app.main.genai.GenerativeModel",
+            "google.generativeai.GenerativeModel",
         ) as mock_model_cls:
             mock_model = AsyncMock()
             mock_model.generate_content_async = AsyncMock(

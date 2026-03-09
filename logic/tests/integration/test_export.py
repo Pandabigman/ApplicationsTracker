@@ -63,7 +63,7 @@ class TestExportToExcel:
         ws = wb.active
 
         # Collect all cell values
-        all_values = [ws.cell(row, col).value for row in ws.iter_rows() for col in range(1, ws.max_column + 1)]
+        all_values = [cell.value for row in ws.iter_rows() for cell in row]
         flat = [str(v) for v in all_values if v is not None]
 
         assert any("Unique Corp XYZ" in v for v in flat)
