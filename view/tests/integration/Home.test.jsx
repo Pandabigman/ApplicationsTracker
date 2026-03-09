@@ -83,7 +83,9 @@ describe('Home — scraper form validation', () => {
     );
 
     // Error message should still be gone after successful input
-    expect(screen.queryByText(/Please enter a job URL/i)).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText(/Please enter a job URL/i)).not.toBeInTheDocument()
+    );
   });
 });
 

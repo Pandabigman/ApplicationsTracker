@@ -7,7 +7,23 @@
  * 3. Clerk mock (applied globally so all tests see a signed-in user)
  */
 import '@testing-library/jest-dom';
+import React from 'react';
 import { beforeAll, afterAll, afterEach, vi } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// framer-motion mock — render motion.* as plain elements with no animations
+// so exit-animated elements are removed from the DOM immediately in tests
+// ---------------------------------------------------------------------------
+vi.mock('framer-motion', () => {
+  const createMotionComponent = (tag) =>
+    React.forwardRef(({ children, animate, initial, exit, variants, transition, whileHover, whileTap, whileFocus, layout, layoutId, onAnimationComplete, ...props }, ref) =>
+      React.createElement(tag, { ...props, ref }, children)
+    );
+  return {
+    motion: new Proxy({}, { get: (_, tag) => createMotionComponent(tag) }),
+    AnimatePresence: ({ children }) => children,
+  };
+});
 import { server } from './integration/setup/msw-handlers.js';
 
 // ---------------------------------------------------------------------------
