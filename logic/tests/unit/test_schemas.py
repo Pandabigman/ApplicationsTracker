@@ -53,7 +53,7 @@ class TestApplicationCreateJobUrl:
                 job_url="javascript:alert(document.cookie)",
             )
         errors = str(exc_info.value)
-        assert "http or https" in errors
+        assert "http/https" in errors
 
     def test_rejects_data_scheme(self):
         with pytest.raises(ValidationError):

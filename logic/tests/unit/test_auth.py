@@ -30,7 +30,7 @@ def _make_fake_token(kid: str = "test-kid") -> str:
     """Build a syntactically valid JWT with a known kid (unsigned, for header parsing)."""
     header = _b64url({"alg": "RS256", "kid": kid})
     payload = _b64url({"sub": "user_abc123", "iss": "https://clerk.test"})
-    return f"{header}.{payload}.fakesignature"
+    return f"{header}.{payload}.AAAA"
 
 
 # ---------------------------------------------------------------------------
