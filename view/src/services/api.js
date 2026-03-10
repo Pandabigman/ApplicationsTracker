@@ -15,8 +15,6 @@ export function safeHref(url) {
   }
 }
 
-const getGeminiApiKey = () => localStorage.getItem('gemini_api_key');
-
 // Auth token getter - set by useAuthSetup() in React
 let _getToken = null;
 
@@ -186,33 +184,14 @@ export const api = {
   // ============== Scraping ==============
 
   scrapeUrl: async (url) => {
-    const apiKey = getGeminiApiKey();
-    if (!apiKey) {
-      throw new Error('Please set your Gemini API key in Settings before scraping.');
-    }
     const response = await authFetch(`${API_BASE_URL}/scrape`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Gemini-Api-Key': apiKey,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
     });
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.detail || 'Failed to scrape URL');
-    }
-    return response.json();
-  },
-
-  validateGeminiKey: async (apiKey) => {
-    const response = await authFetch(`${API_BASE_URL}/validate-key`, {
-      method: 'POST',
-      headers: { 'X-Gemini-Api-Key': apiKey },
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Invalid API key');
     }
     return response.json();
   },

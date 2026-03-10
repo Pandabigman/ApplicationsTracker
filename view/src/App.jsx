@@ -1,25 +1,17 @@
 import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { SignedIn, SignedOut, SignIn, SignUp, useAuth, useClerk } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, SignIn, SignUp, useAuth } from '@clerk/clerk-react';
 import Home from './pages/Home';
 import AllApplications from './pages/AllApplications';
 import JobDetail from './pages/JobDetail';
-import Settings from './pages/Settings';
 import { setAuthTokenGetter } from './services/api';
 
 function AuthSetup({ children }) {
   const { getToken } = useAuth();
-  const clerk = useClerk();
 
   useEffect(() => {
     setAuthTokenGetter(getToken);
   }, [getToken]);
-
-  useEffect(() => {
-    return clerk.addListener(({ user }) => {
-      if (!user) localStorage.removeItem('gemini_api_key');
-    });
-  }, [clerk]);
 
   return children;
 }
@@ -48,7 +40,6 @@ function App() {
         <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/applications" element={<ProtectedRoute><AllApplications /></ProtectedRoute>} />
         <Route path="/job/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route
           path="/sign-in"
           element={
