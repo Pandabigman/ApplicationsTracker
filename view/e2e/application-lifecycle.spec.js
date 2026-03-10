@@ -80,23 +80,4 @@ test.describe.skip('Navigation', () => {
     await expect(page.getByText('All Applications')).toBeVisible({ timeout: 5_000 });
   });
 
-  test('settings page is accessible', async ({ authenticatedPage: page }) => {
-    await page.goto('/settings');
-    await expect(page.getByText('Settings')).toBeVisible({ timeout: 5_000 });
-  });
-});
-
-test.describe.skip('Settings page', () => {
-  test('renders the Gemini API key section', async ({ authenticatedPage: page }) => {
-    await page.goto('/settings');
-    await expect(page.getByText('Gemini API Key')).toBeVisible({ timeout: 5_000 });
-  });
-
-  test('shows "Key saved" indicator when key is in localStorage', async ({
-    authenticatedPage: page,
-  }) => {
-    // auth.fixture.js injects 'e2e-test-gemini-key' into localStorage
-    await page.goto('/settings');
-    await expect(page.getByText(/Key saved/i)).toBeVisible({ timeout: 5_000 });
-  });
 });

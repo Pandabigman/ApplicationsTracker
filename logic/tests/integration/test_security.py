@@ -28,11 +28,7 @@ class TestAuthEnforcement:
 
     def test_scrape_without_token_returns_403(self):
         with TestClient(app) as c:
-            r = c.post(
-                "/scrape",
-                json={"url": "https://example.com"},
-                headers={"X-Gemini-Api-Key": "test"},
-            )
+            r = c.post("/scrape", json={"url": "https://example.com"})
         assert r.status_code == 403
 
     def test_export_without_token_returns_403(self):
@@ -209,9 +205,5 @@ class TestInputValidation:
         assert r.status_code == 422
 
     def test_scrape_with_empty_body_returns_422(self, client):
-        r = client.post("/scrape", json={}, headers={"X-Gemini-Api-Key": "key"})
-        assert r.status_code == 422
-
-    def test_scrape_without_gemini_key_header_returns_422(self, client):
-        r = client.post("/scrape", json={"url": "https://example.com"})
+        r = client.post("/scrape", json={})
         assert r.status_code == 422

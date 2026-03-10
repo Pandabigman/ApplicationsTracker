@@ -4,8 +4,7 @@
  * The Clerk mock in e2e/clerk-mock.js (aliased via vite.config.e2e.js) means
  * the app always thinks the user is signed in. This fixture only needs to:
  *   1. Stub the backend API so tests never need a real Render/Neon instance
- *   2. Pre-load the Gemini key in localStorage
- *   3. Navigate to the root URL
+ *   2. Navigate to the root URL
  */
 import { test as base } from '@playwright/test';
 
@@ -16,13 +15,7 @@ export const test = base.extend({
     await page.route('**/applications', stubApplications);
     await page.route('**/applications/**', stubApplicationDetail);
     await page.route('**/scrape', stubScrape);
-    await page.route('**/validate-key', stubValidateKey);
     await page.route('**/export/excel', stubExport);
-
-    // Pre-load Gemini API key so the scraper form is ready
-    await page.addInitScript(() => {
-      localStorage.setItem('gemini_api_key', 'e2e-test-gemini-key');
-    });
 
     await page.goto('/');
     await use(page);
@@ -139,14 +132,6 @@ async function stubScrape(route) {
       job_url: 'https://anthropic.com/careers/1',
       clean_text_content: 'mocked clean text',
     }),
-  });
-}
-
-async function stubValidateKey(route) {
-  await route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({ valid: true }),
   });
 }
 

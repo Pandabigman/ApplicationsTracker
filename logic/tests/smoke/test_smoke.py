@@ -68,12 +68,8 @@ class TestBackendAuthEnforcement:
         assert r.status_code == 403
 
     def test_scrape_without_token_is_rejected(self, http):
-        r = http.post(
-            "/scrape",
-            json={"url": "https://example.com"},
-            headers={"X-Gemini-Api-Key": "fake"},
-        )
-        assert r.status_code in (403, 422)
+        r = http.post("/scrape", json={"url": "https://example.com"})
+        assert r.status_code == 403
 
     def test_export_without_token_is_rejected(self, http):
         r = http.get("/export/excel")

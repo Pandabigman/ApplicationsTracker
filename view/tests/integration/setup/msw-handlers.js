@@ -198,11 +198,6 @@ export const handlers = [
     });
   }),
 
-  // Key validation
-  http.post(`${API}/validate-key`, () => {
-    return HttpResponse.json({ valid: true });
-  }),
-
   // Export
   http.get(`${API}/export/excel`, () => {
     return new HttpResponse(new Blob(['fake xlsx content']), {

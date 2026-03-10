@@ -49,10 +49,6 @@ describe('Home — initial render', () => {
 // ---------------------------------------------------------------------------
 
 describe('Home — scraper form validation', () => {
-  beforeEach(() => {
-    localStorage.setItem('gemini_api_key', 'AIzaSy-test-key');
-  });
-
   afterEach(() => {
     localStorage.clear();
   });

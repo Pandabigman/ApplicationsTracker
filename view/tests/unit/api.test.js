@@ -4,7 +4,7 @@
  * Covers:
  * - safeHref() XSS prevention (security-critical)
  * - authFetch() Bearer token injection
- * - api.scrapeUrl() Gemini key handling
+ * - api.scrapeUrl() scraping behaviour
  * - Error propagation on non-OK responses
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -125,12 +125,11 @@ describe('authFetch via api.getApplications', () => {
 });
 
 // ---------------------------------------------------------------------------
-// api.scrapeUrl — Gemini API key handling
+// api.scrapeUrl
 // ---------------------------------------------------------------------------
 
 describe('api.scrapeUrl', () => {
   beforeEach(() => {
-    localStorage.clear();
     setAuthTokenGetter(async () => 'mock-token');
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -140,27 +139,10 @@ describe('api.scrapeUrl', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    localStorage.clear();
     setAuthTokenGetter(null);
   });
 
-  it('throws with helpful message when no Gemini key is in localStorage', async () => {
-    // localStorage is clear — no key set
-    await expect(api.scrapeUrl('https://example.com/job')).rejects.toThrow(
-      /Gemini API key/i
-    );
-  });
-
-  it('sends X-Gemini-Api-Key header from localStorage', async () => {
-    localStorage.setItem('gemini_api_key', 'AIzaSy-my-test-key-12345');
-    await api.scrapeUrl('https://jobs.example.com/123');
-
-    const [, options] = global.fetch.mock.calls[0];
-    expect(options.headers['X-Gemini-Api-Key']).toBe('AIzaSy-my-test-key-12345');
-  });
-
   it('sends the URL in the request body', async () => {
-    localStorage.setItem('gemini_api_key', 'AIzaSy-key');
     await api.scrapeUrl('https://jobs.example.com/456');
 
     const [, options] = global.fetch.mock.calls[0];
@@ -168,62 +150,29 @@ describe('api.scrapeUrl', () => {
     expect(body.url).toBe('https://jobs.example.com/456');
   });
 
+  it('does not send X-Gemini-Api-Key header', async () => {
+    await api.scrapeUrl('https://jobs.example.com/123');
+
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.headers['X-Gemini-Api-Key']).toBeUndefined();
+  });
+
   it('throws the API error detail on non-ok response', async () => {
-    localStorage.setItem('gemini_api_key', 'AIzaSy-key');
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
-      json: async () => ({ detail: 'Rate limit exceeded on Gemini API' }),
+      json: async () => ({ detail: 'Rate limit exceeded' }),
     });
 
-    await expect(api.scrapeUrl('https://example.com')).rejects.toThrow(
-      'Rate limit exceeded on Gemini API'
-    );
+    await expect(api.scrapeUrl('https://example.com')).rejects.toThrow('Rate limit exceeded');
   });
 
   it('falls back to generic message when API error has no detail', async () => {
-    localStorage.setItem('gemini_api_key', 'AIzaSy-key');
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       json: async () => ({}),
     });
 
     await expect(api.scrapeUrl('https://example.com')).rejects.toThrow('Failed to scrape URL');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// api.validateGeminiKey
-// ---------------------------------------------------------------------------
-
-describe('api.validateGeminiKey', () => {
-  beforeEach(() => {
-    setAuthTokenGetter(async () => 'mock-token');
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    setAuthTokenGetter(null);
-  });
-
-  it('sends X-Gemini-Api-Key header with the provided key', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ valid: true }),
-    });
-
-    await api.validateGeminiKey('my-test-api-key');
-
-    const [, options] = global.fetch.mock.calls[0];
-    expect(options.headers['X-Gemini-Api-Key']).toBe('my-test-api-key');
-  });
-
-  it('throws when the key is invalid (non-ok response)', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      json: async () => ({ detail: 'Invalid API key.' }),
-    });
-
-    await expect(api.validateGeminiKey('bad-key')).rejects.toThrow('Invalid API key.');
   });
 });
 

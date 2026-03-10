@@ -13,6 +13,7 @@ import os
 os.environ.setdefault("DATABASE_URL", "postgresql://localhost/jobtracker_test")
 os.environ.setdefault("CLERK_JWKS_URL", "https://test.clerk.dev/.well-known/jwks.json")
 os.environ.setdefault("CLERK_SECRET_KEY", "sk_test_placeholder")
+os.environ.setdefault("GEMINI_API_KEY", "test-gemini-key-placeholder")
 
 import pytest
 from sqlalchemy import create_engine

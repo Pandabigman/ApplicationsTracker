@@ -1,5 +1,5 @@
 """
-Integration tests for the /scrape and /validate-key endpoints.
+Integration tests for the /scrape endpoint.
 
 External services (Gemini, ScrapingBee) are mocked; SSRF guard and error
 handling are tested through the full request/response cycle.
@@ -27,7 +27,6 @@ class TestScrapeEndpoint:
             r = client.post(
                 "/scrape",
                 json={"url": "https://stripe.com/jobs/123"},
-                headers={"X-Gemini-Api-Key": "test-key"},
             )
 
         assert r.status_code == 200
@@ -41,7 +40,6 @@ class TestScrapeEndpoint:
             r = client.post(
                 "/scrape",
                 json={"url": "https://example.com/jobs/1"},
-                headers={"X-Gemini-Api-Key": "test-key"},
             )
 
         assert r.status_code == 400
@@ -56,21 +54,12 @@ class TestScrapeEndpoint:
             r = client.post(
                 "/scrape",
                 json={"url": "https://example.com/jobs/1"},
-                headers={"X-Gemini-Api-Key": "test-key"},
             )
 
         assert r.status_code == 400
 
     def test_scrape_missing_url_returns_422(self, client):
-        r = client.post(
-            "/scrape",
-            json={},
-            headers={"X-Gemini-Api-Key": "test-key"},
-        )
-        assert r.status_code == 422
-
-    def test_scrape_missing_gemini_key_header_returns_422(self, client):
-        r = client.post("/scrape", json={"url": "https://example.com/jobs/1"})
+        r = client.post("/scrape", json={})
         assert r.status_code == 422
 
     def test_scrape_invalid_url_format_returns_422(self, client):
@@ -78,52 +67,5 @@ class TestScrapeEndpoint:
         r = client.post(
             "/scrape",
             json={"url": "not-a-url"},
-            headers={"X-Gemini-Api-Key": "test-key"},
         )
         assert r.status_code == 422
-
-
-class TestValidateKeyEndpoint:
-    def test_valid_key_returns_200_with_valid_true(self, client):
-        with patch(
-            "google.generativeai.GenerativeModel",
-        ) as mock_model_cls:
-            mock_model = AsyncMock()
-            mock_model.generate_content_async = AsyncMock(return_value=MagicMock())
-            mock_model_cls.return_value = mock_model
-
-            r = client.post(
-                "/validate-key",
-                headers={"X-Gemini-Api-Key": "AIzaSy-valid-key"},
-            )
-
-        # Either 200 (key worked) or we accept that the mock setup varies —
-        # the key point is we're not getting a 4xx from our validation logic
-        assert r.status_code in (200, 401)
-
-    def test_invalid_key_returns_401(self, client):
-        with patch(
-            "google.generativeai.GenerativeModel",
-        ) as mock_model_cls:
-            mock_model = AsyncMock()
-            mock_model.generate_content_async = AsyncMock(
-                side_effect=Exception("API key not valid")
-            )
-            mock_model_cls.return_value = mock_model
-
-            r = client.post(
-                "/validate-key",
-                headers={"X-Gemini-Api-Key": "bad-key"},
-            )
-
-        assert r.status_code == 401
-
-    def test_missing_gemini_key_header_returns_422(self, client):
-        r = client.post("/validate-key")
-        assert r.status_code == 422
-
-
-# ---------------------------------------------------------------------------
-# Need to import MagicMock in scope
-# ---------------------------------------------------------------------------
-from unittest.mock import MagicMock  # noqa: E402
