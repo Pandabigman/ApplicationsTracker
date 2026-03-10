@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
+    "build:e2e": "vite build --config vite.config.e2e.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
