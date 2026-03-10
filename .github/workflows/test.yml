@@ -95,12 +95,14 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Build frontend for E2E
-        run: npm run build
+      - name: Build frontend for E2E (with Clerk mock)
+        run: npm run build:e2e
         env:
           VITE_API_URL: http://localhost:8000
-          # Set a placeholder — Clerk won't be configured in CI for E2E
           VITE_CLERK_PUBLISHABLE_KEY: pk_test_placeholder
+
+      - name: Start preview server
+        run: npx vite preview --port 4173 &
 
       - name: Run E2E tests against preview server
         run: npx playwright test
@@ -140,7 +142,7 @@ jobs:
         run: sleep 90
 
       - name: Run backend smoke tests
-        run: python -m pytest logic/tests/smoke/ -v -m smoke
+        run: python -m pytest logic/tests/smoke/ -v -m smoke --noconftest
         env:
           BACKEND_URL: ${{ secrets.PRODUCTION_API_URL}}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}

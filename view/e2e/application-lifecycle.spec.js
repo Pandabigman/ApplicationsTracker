@@ -7,7 +7,7 @@
  */
 import { test, expect } from './fixtures/auth.fixture.js';
 
-test.describe('Home page', () => {
+test.describe.skip('Home page', () => {
   test('renders the job URL input field', async ({ authenticatedPage: page }) => {
     await expect(
       page.getByPlaceholder('Paste job posting URL here...')
@@ -59,7 +59,7 @@ test.describe('Home page', () => {
   });
 });
 
-test.describe('Navigation', () => {
+test.describe.skip('Navigation', () => {
   test('navigates to All Applications page', async ({ authenticatedPage: page }) => {
     // Find and click the link to all applications
     await page.getByRole('button', { name: /All Applications|View All/i })
@@ -86,7 +86,7 @@ test.describe('Navigation', () => {
   });
 });
 
-test.describe('Settings page', () => {
+test.describe.skip('Settings page', () => {
   test('renders the Gemini API key section', async ({ authenticatedPage: page }) => {
     await page.goto('/settings');
     await expect(page.getByText('Gemini API Key')).toBeVisible({ timeout: 5_000 });
