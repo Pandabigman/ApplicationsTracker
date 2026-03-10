@@ -139,7 +139,7 @@ jobs:
         run: pip install httpx pytest
 
       - name: Wait for Render to finish deploying
-        run: sleep 90
+        run: sleep 180
 
       - name: Run backend smoke tests
         run: python -m pytest logic/tests/smoke/ -v -m smoke --noconftest
